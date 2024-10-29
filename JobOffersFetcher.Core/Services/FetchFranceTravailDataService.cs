@@ -46,27 +46,40 @@ public class FetchFranceTravailDataService
         _logger.LogInformation("Crawler get {NumberDistinctOffre} at {_dateTimeProvider.Now}", offres.Count, _dateTimeProvider.UtcNow);
         return offres;
     }
+    
 
     private async Task IngestData(List<Offre> offres)
     {
         List<Offre> offreToIngest = new List<Offre>();
+        List<Offre> offreToUpdate = new List<Offre>();
         HashSet<Entreprise> existingEntreprises = await _offreRepository.GetAllEntreprise();
-        HashSet<string> existingOffreIds = await _offreRepository.GetAllOffreIds();
+        HashSet<Offre> existingOffreIds = await _offreRepository.GetAllOffre();
         foreach (Offre offre in offres)
         {
-            if (existingOffreIds.Contains(offre.Id))
+            if (existingOffreIds.TryGetValue(offre, out Offre existingOffre))
             {
+                if(existingOffre.DateActualisation > offre.DateActualisation)
+                {
+                    offre.Entreprise = GetOrCreateEntreprise(existingEntreprises, offre.Entreprise);
+                    offreToUpdate.Add(offre);
+                }
                 continue;
             }
-            if(offre.LieuTravail.Commune == null)
+
+            if (offre.LieuTravail.Commune == null)
             {
                 offre.LieuTravail.Commune = "Commune non renseignée";
             }
+
             offre.Entreprise = GetOrCreateEntreprise(existingEntreprises, offre.Entreprise);
             offreToIngest.Add(offre);
         }
+
         await _offreRepository.AddOffres(offreToIngest);
         _logger.LogInformation("Ingester added {offreToIngest} at {_dateTimeProvider.Now}", offreToIngest.Count, _dateTimeProvider.UtcNow);
+        await _offreRepository.UpdateOffres(offreToUpdate);
+        _logger.LogInformation("Ingester update {offreToUpdate} at {_dateTimeProvider.Now}", offreToUpdate.Count, _dateTimeProvider.UtcNow);
+
     }
 
     private Entreprise GetOrCreateEntreprise(HashSet<Entreprise> existingEntreprises, Entreprise offreEntreprise)

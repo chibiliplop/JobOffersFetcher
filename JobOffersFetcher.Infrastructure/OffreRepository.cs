@@ -33,9 +33,13 @@ public class OffreRepository : IOffreRepository
     }
 
 
-    public async Task<HashSet<string>> GetAllOffreIds()
+    public async Task<HashSet<Offre>> GetAllOffre()
     {
-        return new HashSet<string>(await _context.Set<Offre>().Select(x => x.Id).ToListAsync());
+        return new HashSet<Offre>(await _context.Set<Offre>().Select(x => new Offre
+        {
+            Id = x.Id,
+            DateActualisation = x.DateActualisation
+        }).ToListAsync());
     }
 
     public Task AddOffre(Offre offre)
@@ -59,6 +63,16 @@ public class OffreRepository : IOffreRepository
     public Task AddOffres(List<Offre> offres)
     {
         _context.AddRange(offres);
+        return _context.SaveChangesAsync();
+    }
+
+    public Task UpdateOffres(List<Offre> offres)
+    {
+        foreach (Offre offre in offres)
+        {
+            _context.Entry(offre).State = EntityState.Modified;
+        }
+
         return _context.SaveChangesAsync();
     }
 
